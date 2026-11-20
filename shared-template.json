@@ -10,7 +10,7 @@
   "s1_tax": "是",
   "s1_taxRate": "7",
   "s1_shipFee": "是",
-  "s1_address": "",
+  "s1_address": "1",
   "s2_newPrice": "10400",
   "s2_newRatio": "100.0",
   "s2_masterPrice": "2000",
@@ -137,6 +137,6 @@
       "_userSet": []
     }
   },
-  "_publishedAt": "2026-11-20T12:43:18.673Z",
-  "_revision": "68434c3b-3618-45ae-b67d-a996af9247f4"
+  "_publishedAt": "2026-11-20T12:43:55.814Z",
+  "_revision": "a63e1860-f134-47b3-965e-81b5271e0ce0"
 }
