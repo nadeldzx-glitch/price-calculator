@@ -22,12 +22,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check calculator and template synchronization
+        run: |
+          npm ci
+          npm test
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Prepare calculator files
         run: |
           mkdir -p _site
-          cp index.html backend-config.js _site/
+          cp index.html github-template-store.js shared-template.json _site/
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

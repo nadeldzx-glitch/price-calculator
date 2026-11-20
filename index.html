@@ -692,7 +692,7 @@ select.form-control {
   .ps-actions, .ps-hint, .ps-printopts { display:none !important; }
 }
 </style>
-<script src="./backend-config.js"></script>
+<script src="./github-template-store.js?v=1"></script>
 </head>
 <body>
 
@@ -700,7 +700,9 @@ select.form-control {
 <div id="authOverlay" class="auth-overlay" style="display:none;">
   <div class="auth-box">
     <h2>管理员登录</h2>
-    <input type="password" id="authPwd" class="auth-input" placeholder="请输入密码" onkeydown="if(event.key==='Enter')checkAuth()">
+    <input type="password" id="authPwd" class="auth-input" placeholder="GitHub 仓库访问令牌" autocomplete="off" onkeydown="if(event.key==='Enter')checkAuth()">
+    <p class="auth-hint">仅授权 price-calculator 仓库，Contents 设为 Read and write。</p>
+    <p class="auth-hint"><a href="https://github.com/settings/personal-access-tokens/new?name=price-calculator-template&amp;target_name=nadeldzx-glitch&amp;contents=write" target="_blank" rel="noopener noreferrer">创建 GitHub 访问令牌</a> · 令牌仅保留在当前浏览会话</p>
     <div id="authErr" class="auth-err"></div>
     <button class="auth-btn" onclick="checkAuth()">管理员登录</button>
     <button class="auth-btn ghost" onclick="document.getElementById('authOverlay').style.display='none'">返回计算器</button>
@@ -736,6 +738,7 @@ select.form-control {
     <button class="print-btn" onclick="openPrintSheet()">🖨 打印报价单</button>
     <button class="reset-btn" onclick="confirmReset()">↻ 重置</button>
     <button class="reset-btn admin-only" onclick="saveAsTemplate()">★ 存为模板</button>
+    <button class="reset-btn admin-only" onclick="logoutAdmin()">退出管理员</button>
   </div>
 </div>
 
@@ -1181,7 +1184,7 @@ const SI_PIN_VOL_COEF = 1.25;
 // ===== 鉴权初始化（密码登录）=====
 document.addEventListener('DOMContentLoaded', ()=>{
   const overlay = document.getElementById('authOverlay');
-  if(!sessionStorage.getItem('role')) sessionStorage.setItem('role', 'employee');
+  if(!window.githubTemplateStore.isSignedIn()) sessionStorage.setItem('role', 'employee');
   overlay.style.display = 'none';
   applyRole();
 });
@@ -1866,14 +1869,9 @@ const TEMPLATE_VERSION = 166;
 // 纯 JS 逻辑修复不要 bump，否则用户已存模板会被误判失效！
 const TEMPLATE_MIN_VERSION = 166;
 
-// ============ 共享模板（云端同步）============
-// 已发布为 WorkBuddy 分享链接；共享模板由本站自带轻量后端托管：
-//   GET  /shared-template.json  → 所有人读取（自动同步，匿名公开读）
-//   POST /api/template          → 仅管理员写入（需管理员密码，服务端落盘 JSON）
-// 不再依赖 GitHub Pages / 云存储。模板存为服务端文件，任何打开链接的人都能拉取，
-// 管理员一键写入、秒级生效。
-const API_BASE = (window.CALCULATOR_BACKEND_URL || '').replace(/[/]$/, '');
-const SHARED_TEMPLATE_URL = API_BASE + '/shared-template.json';   // 站点自身后端接口（同源）
+// ============ GitHub 共享模板 ============
+// 管理员通过 GitHub Contents API 发布，普通使用者从 Pages 读取。
+let templatePublishInFlight = false;
 let sharedTemplate = null;   // 运行时从后端载入（admin 发布的全局模板）
 let _appliedPublishedAt = null;  // 当前页面已应用的共享模板发布时间戳
 const SYNC_BANNER_ID = 'bh-sync-banner';   // "有新模板"提示横幅（用 DOM 是否存在作为唯一状态源，避免标志位卡死）
@@ -1881,46 +1879,40 @@ const SYNC_BANNER_ID = 'bh-sync-banner';   // "有新模板"提示横幅（用 D
 // 异步拉取共享模板（全员同步读取）。失败/为空则回退 localStorage/出厂。
 // 带 ?_t= 时间戳参数做缓存穿透，确保同事立刻拿到最新模板。
 async function loadSharedTemplate(){
-  if(!API_BASE) return;
   try {
-    const res = await fetch(SHARED_TEMPLATE_URL + '?_t=' + Date.now(), { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-    if(!res.ok) return;
-    const data = await res.json();
+    const data = await window.githubTemplateStore.read();
     if(data && !data._empty && data._v >= TEMPLATE_MIN_VERSION && data._v <= TEMPLATE_VERSION){
       sharedTemplate = data;
     }
   } catch(e) { /* 离线或网络失败：忽略，回退本地 */ }
 }
 
-// admin 存为模板时，写入本站后端（服务端落盘 JSON，全员刷新即同步，秒级生效）
+// 发布时保留当前已应用版本，GitHub 同时检查文件 SHA，防止覆盖其他管理员的新版本。
 async function publishSharedTemplate(flat){
-  if(!API_BASE){ showToast('共享模板服务正在配置', 'warn'); return; }
-  const role = sessionStorage.getItem('role');
-  const pwd  = sessionStorage.getItem('bh_pwd') || '';
-  if(role !== 'admin'){
+  if(templatePublishInFlight) return;
+  if(!window.githubTemplateStore.isSignedIn()){
     showToast('需管理员登录后才能发布共享模板');
     return;
   }
-  const payload = Object.assign({}, flat, { _publishedAt: new Date().toISOString() });
+  templatePublishInFlight = true;
   try {
-    const up = await fetch(API_BASE + '/api/template', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pwd, template: payload })
-    });
-    if(up.ok){
-      sharedTemplate = payload;            // 当前页面立即生效
-      _appliedPublishedAt = payload._publishedAt;
-      showToast('✓ 已发布到云端，所有人刷新即同步');
-      waitForSharedTemplateLive(payload._publishedAt);   // 轮询确认真正上线后再提示
-    } else if(up.status === 403){
-      showToast('发布失败：管理员密码校验未通过');
-    } else {
-      const err = await up.json().catch(()=>({}));
-      showToast('发布失败：' + (err.message || ('HTTP ' + up.status)));
-    }
+    const expectedRevision = _appliedPublishedAt ? window.githubTemplateStore.revision(sharedTemplate) : null;
+    const payload = await window.githubTemplateStore.publish(flat, expectedRevision);
+    sharedTemplate = payload;
+    _appliedPublishedAt = payload._publishedAt;
+    Object.assign(defaults, payload);
+    try { localStorage.setItem('bh_quote_template', JSON.stringify(payload)); } catch {}
+    showToast('✓ 已提交 GitHub，正在更新其他设备的共享模板');
+    waitForSharedTemplateLive(payload._publishedAt);
   } catch(e){
-    showToast('发布失败：网络错误');
+    if(e.status === 401){
+      window.githubTemplateStore.signOut();
+      applyRole();
+    }
+    if(e.latestTemplate) showSyncBanner(e.latestTemplate);
+    showToast('发布失败：' + (e.message || '网络错误，请重试'), 'warn');
+  } finally {
+    templatePublishInFlight = false;
   }
 }
 
@@ -1930,11 +1922,8 @@ async function waitForSharedTemplateLive(ts){
   while(Date.now() < deadline){
     await new Promise(r=>setTimeout(r, 6000));
     try {
-      const res = await fetch(SHARED_TEMPLATE_URL + '?_t=' + Date.now(), { cache: 'no-store' });
-      if(res.ok){
-        const d = await res.json();
-        if(d && d._publishedAt === ts){ showToast('✓ 共享模板已上线，所有人刷新即同步'); return; }
-      }
+      const d = await window.githubTemplateStore.read();
+      if(d && d._publishedAt === ts){ showToast('✓ 共享模板已上线，其他设备刷新或点击同步即可载入'); return; }
     } catch(e) {}
   }
   showToast('已提交，部署稍慢——同事约1~2分钟后刷新即可同步');
@@ -1942,11 +1931,8 @@ async function waitForSharedTemplateLive(ts){
 
 // 同事端：标签页切回前台时检测是否有更新的共享模板（不自动覆盖，避免打断正在填的报价）
 async function checkSharedTemplateUpdate(){
-  if(!API_BASE) return;
   try {
-    const res = await fetch(SHARED_TEMPLATE_URL + '?_t=' + Date.now(), { cache: 'no-store' });
-    if(!res.ok) return;
-    const data = await res.json();
+    const data = await window.githubTemplateStore.read();
     if(!data || data._empty) return;
     if(!(data._v >= TEMPLATE_MIN_VERSION && data._v <= TEMPLATE_VERSION)) return;
     if(!data._publishedAt || data._publishedAt === _appliedPublishedAt) return;
@@ -2571,6 +2557,9 @@ loadSharedTemplate().finally(() => {
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible') checkSharedTemplateUpdate();
 });
+setInterval(() => {
+  if(document.visibilityState === 'visible') checkSharedTemplateUpdate();
+}, 60000);
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closePrintSheet(); });
 
 // ==================== 打印报价单 ====================
@@ -3078,26 +3067,23 @@ async function checkAuth(){
   const pwd = document.getElementById('authPwd').value;
   const err = document.getElementById('authErr');
   err.textContent = '';
-  if(!API_BASE){ err.textContent = '共享模板服务正在配置，计算和打印可直接使用'; return; }
   try {
-    const response = await fetch(API_BASE + '/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pwd })
-    });
-    if(!response.ok){ err.textContent = response.status === 403 ? '密码错误，请重试' : '登录服务暂时不可用，请重试'; return; }
-    sessionStorage.setItem('role', 'admin');
-    sessionStorage.setItem('bh_pwd', pwd);
+    await window.githubTemplateStore.signIn(pwd);
     document.getElementById('authOverlay').style.display = 'none';
     document.getElementById('authPwd').value = '';
     applyRole();
-  } catch {
-    err.textContent = '网络错误，请重试';
+  } catch(e) {
+    err.textContent = e.message || 'GitHub 登录失败，请重试';
   }
 }
+function logoutAdmin(){
+  window.githubTemplateStore.signOut();
+  applyRole();
+  showToast('已退出管理员');
+}
 function applyRole(){
-  const role = sessionStorage.getItem('role')||'employee';
-  document.querySelectorAll('.admin-only').forEach(el=>{ el.style.display = (role==='admin')?'':'none'; });
+  const isAdmin = window.githubTemplateStore.isSignedIn();
+  document.querySelectorAll('.admin-only').forEach(el=>{ el.style.display = isAdmin ? '' : 'none'; });
 }
 function saveAsTemplate(){ document.getElementById('tplConfirm').style.display='flex'; }
 function confirmReset(){
@@ -3113,6 +3099,12 @@ function doReset(){
   resetAll();
 }
 function doSaveTemplate(){
+  if(templatePublishInFlight) return;
+  if(!window.githubTemplateStore.isSignedIn()){
+    document.getElementById('tplConfirm').style.display='none';
+    document.getElementById('authOverlay').style.display='flex';
+    return;
+  }
   // 收集当前所有值 → 存到 bh_quote_template（与重置模板同一 key，格式对齐 captureDefaults）
   const flat = {};
   document.querySelectorAll('input[type="number"], input[type="text"], select').forEach(el=>{ flat[el.id] = el.value; });
