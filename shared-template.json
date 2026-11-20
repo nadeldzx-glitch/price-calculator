@@ -1,3 +1,142 @@
 {
-  "_empty": true
+  "parseInput": "",
+  "s1_thickness": "",
+  "s1_weight": "",
+  "s1_length": "",
+  "s1_width": "",
+  "s1_height": "",
+  "s1_usageRate": "100",
+  "s1_quantity": "",
+  "s1_tax": "是",
+  "s1_taxRate": "7",
+  "s1_shipFee": "是",
+  "s1_address": "",
+  "s2_newPrice": "10400",
+  "s2_newRatio": "100.0",
+  "s2_masterPrice": "2000",
+  "s2_masterRatio": "0",
+  "s2_specialPrice": "0",
+  "s2_specialRatio": "0",
+  "s2_fixedCost": "1700",
+  "s2_profit": "0",
+  "s3_length": "",
+  "s3_width": "",
+  "s3_height": "",
+  "s3_sheetPrice": "0.00",
+  "s3p_nail": "0.5",
+  "s3p_rivet": "1",
+  "s3p_silkprint": "0.5",
+  "s3p_handle": "1.2",
+  "s3p_velcro": "5",
+  "s3p_fiber": "1.5",
+  "s3p_velcro_corner": "2.5",
+  "s3p_skeletonCorner": "3.4",
+  "s3_skeleton_edge": "0.00",
+  "s3p_clip": "1.5",
+  "s3p_labor": "0",
+  "s4_shipping": "0",
+  "s4_die": "0",
+  "s4_screen": "0",
+  "s4_fractionAdj": "1",
+  "s4_priceAdj": "0",
+  "cb_0": false,
+  "cb_1": false,
+  "cb_2": false,
+  "cb_3": false,
+  "cb_4": false,
+  "cb_5": false,
+  "cb_6": false,
+  "cb_7": false,
+  "cb_8": false,
+  "cb_9": false,
+  "cb_10": false,
+  "style": "板材",
+  "dimType": "",
+  "materialType": "普通",
+  "_v": 166,
+  "_userSetPrices": [
+    "s2_newPrice"
+  ],
+  "_customCB": [],
+  "materialPrices": {
+    "普通": {
+      "newPrice": 10400,
+      "masterPrice": 2000,
+      "specialPrice": 0,
+      "fixedCost": 1700,
+      "masterRatio": 0,
+      "specialRatio": 0,
+      "_userSet": [
+        "s2_newPrice"
+      ]
+    },
+    "阻燃": {
+      "newPrice": 10400,
+      "masterPrice": 2000,
+      "specialPrice": 24000,
+      "fixedCost": 1700,
+      "masterRatio": 0,
+      "specialRatio": 6,
+      "_userSet": [
+        "s2_newPrice"
+      ]
+    },
+    "耐低温": {
+      "newPrice": 10400,
+      "masterPrice": 2000,
+      "specialPrice": 14000,
+      "fixedCost": 1700,
+      "masterRatio": 0,
+      "specialRatio": 5,
+      "_userSet": [
+        "s2_newPrice"
+      ]
+    },
+    "导电": {
+      "newPrice": 10400,
+      "masterPrice": 2000,
+      "specialPrice": 12000,
+      "fixedCost": 1700,
+      "masterRatio": 10,
+      "specialRatio": 60,
+      "_userSet": [
+        "s2_newPrice",
+        "s2_specialPrice"
+      ]
+    },
+    "防静电": {
+      "newPrice": 10400,
+      "masterPrice": 2000,
+      "specialPrice": 12000,
+      "fixedCost": 1700,
+      "masterRatio": 10,
+      "specialRatio": 50,
+      "_userSet": [
+        "s2_newPrice",
+        "s2_specialPrice"
+      ]
+    },
+    "新料+透明母料": {
+      "newPrice": 10400,
+      "masterPrice": 3800,
+      "specialPrice": 0,
+      "fixedCost": 1700,
+      "masterRatio": 0,
+      "specialRatio": 0,
+      "_userSet": [
+        "s2_newPrice"
+      ]
+    },
+    "回料+母料": {
+      "newPrice": 4300,
+      "masterPrice": 2000,
+      "specialPrice": 0,
+      "fixedCost": 1700,
+      "masterRatio": 0,
+      "specialRatio": 0,
+      "_userSet": []
+    }
+  },
+  "_publishedAt": "2026-11-20T12:39:10.588Z",
+  "_revision": "b5334154-404c-4114-bac2-14692f8ec301"
 }
